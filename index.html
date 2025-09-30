@@ -1,0 +1,467 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulário Interativo e Divertido</title>
+    <style>
+        body {
+            font-family: 'Comic Sans MS', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+            color: #333;
+            overflow: hidden;
+            position: relative;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.3;
+        }
+        form {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 90%;
+            position: relative;
+            z-index: 1;
+            animation: slideIn 0.5s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #ff6b6b;
+            font-size: 1.1em;
+            cursor: pointer;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 2px solid #4ecdc4;
+            border-radius: 8px;
+            box-sizing: border-box;
+            transition: border-color 0.3s, transform 0.3s;
+        }
+        input:hover, select:hover, textarea:hover {
+            transform: scale(1.03);
+            transition: transform 0.2s ease-in-out;
+        }
+        input:focus, select:focus, textarea:focus, button:focus {
+            outline: none;
+            border-color: #ff6b6b;
+            transform: scale(1.02);
+        }
+        button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1.1em;
+            transition: background 0.3s, transform 0.3s;
+        }
+        button:not(:disabled) {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            animation: none;
+        }
+        button:hover:not(:disabled) {
+            background: #ff8787;
+            transform: scale(1.05);
+        }
+        #thanks {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: #4ecdc4;
+            border: 2px solid #3ab0a2;
+            color: white;
+            border-radius: 8px;
+            text-align: center;
+            animation: popUp 0.5s ease-out;
+        }
+        @keyframes popUp {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .checkbox-container input {
+            width: auto;
+            cursor: pointer;
+            transform: scale(1.2);
+            transition: transform 0.2s ease-in-out;
+        }
+        .checkbox-container input:checked {
+            animation: checkBounce 0.3s ease-in-out;
+        }
+        @keyframes checkBounce {
+            0% { transform: scale(1.2); }
+            50% { transform: scale(1.5); }
+            100% { transform: scale(1.2); }
+        }
+        .emoji {
+            font-size: 1.5em;
+            margin-right: 5px;
+            display: inline-block;
+            transition: transform 0.3s ease-in-out;
+        }
+        label:hover .emoji, input:focus + .emoji, select:focus + .emoji, textarea:focus + .emoji {
+            animation: wiggle 0.4s ease-in-out infinite;
+        }
+        .checkbox-container input:checked + label .emoji {
+            animation: rotateEmoji 0.5s ease-in-out;
+        }
+        @keyframes wiggle {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(-10deg); }
+            75% { transform: rotate(10deg); }
+            100% { transform: rotate(0deg); }
+        }
+        @keyframes rotateEmoji {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .error {
+            color: #ff6b6b;
+            font-size: 0.9em;
+            margin-top: -10px;
+            margin-bottom: 10px;
+            display: none;
+        }
+        #confettiCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+        @media (max-width: 600px) {
+            form {
+                padding: 15px;
+            }
+            button {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="bgCanvas"></canvas>
+    <canvas id="confettiCanvas"></canvas>
+    <form id="contactForm" novalidate>
+        <label for="name"><span class="emoji">😊</span> Nome:</label>
+        <input type="text" id="name" name="name" required aria-required="true" placeholder="Digite seu nome" maxlength="50" pattern="[A-Za-zÀ-ÿ\s-]*">
+        <div class="error" id="nameError">Use apenas letras, espaços ou hífens!</div>
+
+        <label for="email"><span class="emoji">📧</span> E-mail:</label>
+        <input type="email" id="email" name="email" required aria-required="true" placeholder="seu@email.com" maxlength="100">
+        <div class="error" id="emailError">Por favor, insira um e-mail válido!</div>
+
+        <label for="subject"><span class="emoji">❓</span> Assunto:</label>
+        <select id="subject" name="subject" required aria-required="true">
+            <option value="">Escolha um assunto</option>
+            <option value="sugestao">Sugestão 😄</option>
+            <option value="reclamacao">Reclamação 😕</option>
+            <option value="pergunta">Pergunta 🤔</option>
+        </select>
+        <div class="error" id="subjectError">Por favor, selecione um assunto!</div>
+
+        <label for="message"><span class="emoji">💬</span> Mensagem:</label>
+        <textarea id="message" name="message" rows="5" required aria-required="true" placeholder="Escreva sua mensagem aqui..." maxlength="500"></textarea>
+        <div class="error" id="messageError">Use até 500 caracteres, sem símbolos como < ou >!</div>
+
+        <div class="checkbox-container">
+            <input type="checkbox" id="confirm" name="confirm">
+            <label for="confirm"><span class="emoji">🚀</span> Confirmo o envio</label>
+        </div>
+
+        <button type="submit" id="submit" disabled>Enviar Mensagem! 🎉</button>
+    </form>
+
+    <div id="thanks" aria-live="polite">Obrigado por sua mensagem! 😎 Entraremos em contato em breve!</div>
+
+    <script>
+        // Background particle animation
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        bgCanvas.width = window.innerWidth;
+        bgCanvas.height = window.innerHeight;
+
+        const particles = [];
+        const particleCount = 50;
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * bgCanvas.width;
+                this.y = Math.random() * bgCanvas.height;
+                this.size = Math.random() * 5 + 2;
+                this.speedX = Math.random() * 2 - 1;
+                this.speedY = Math.random() * 2 - 1;
+                this.color = `hsl(${Math.random() * 60 + 180}, 70%, 60%)`;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.x < 0 || this.x > bgCanvas.width) this.speedX *= -1;
+                if (this.y < 0 || this.y > bgCanvas.height) this.speedY *= -1;
+            }
+            draw() {
+                bgCtx.beginPath();
+                bgCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                bgCtx.fillStyle = this.color;
+                bgCtx.fill();
+            }
+        }
+
+        function initBg() {
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animateBg() {
+            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+            requestAnimationFrame(animateBg);
+        }
+
+        initBg();
+        animateBg();
+
+        // Confetti animation
+        const confettiCanvas = document.getElementById('confettiCanvas');
+        const confettiCtx = confettiCanvas.getContext('2d');
+        confettiCanvas.width = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+
+        const confettiParticles = [];
+        const confettiCount = 100;
+
+        class Confetti {
+            constructor() {
+                this.x = Math.random() * confettiCanvas.width;
+                this.y = Math.random() * -confettiCanvas.height;
+                this.size = Math.random() * 10 + 5;
+                this.speedY = Math.random() * 5 + 2;
+                this.color = `hsl(${Math.random() * 360}, 80%, 60%)`;
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = Math.random() * 10 - 5;
+                this.opacity = 1;
+            }
+            update() {
+                this.y += this.speedY;
+                this.rotation += this.rotationSpeed;
+                this.opacity = this.y > confettiCanvas.height ? 0 : 1;
+            }
+            draw() {
+                confettiCtx.save();
+                confettiCtx.translate(this.x, this.y);
+                confettiCtx.rotate((this.rotation * Math.PI) / 180);
+                confettiCtx.fillStyle = this.color;
+                confettiCtx.globalAlpha = this.opacity;
+                confettiCtx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                confettiCtx.restore();
+            }
+        }
+
+        function triggerConfetti() {
+            confettiParticles.length = 0;
+            for (let i = 0; i < confettiCount; i++) {
+                confettiParticles.push(new Confetti());
+            }
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            confettiParticles.forEach((particle, index) => {
+                particle.update();
+                particle.draw();
+                if (particle.y > confettiCanvas.height) {
+                    confettiParticles.splice(index, 1);
+                }
+            });
+            if (confettiParticles.length > 0) {
+                requestAnimationFrame(animateConfetti);
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+        });
+
+        // Form functionality
+        const form = document.getElementById('contactForm');
+        const checkbox = document.getElementById('confirm');
+        const submitBtn = document.getElementById('submit');
+        const thanks = document.getElementById('thanks');
+        const inputs = {
+            name: document.getElementById('name'),
+            email: document.getElementById('email'),
+            subject: document.getElementById('subject'),
+            message: document.getElementById('message')
+        };
+        const errors = {
+            name: document.getElementById('nameError'),
+            email: document.getElementById('emailError'),
+            subject: document.getElementById('subjectError'),
+            message: document.getElementById('messageError')
+        };
+
+        inputs.name.addEventListener('input', () => {
+            inputs.name.value = inputs.name.value.replace(/[^A-Za-zÀ-ÿ\s-]/g, '');
+        });
+
+        inputs.message.addEventListener('input', () => {
+            inputs.message.value = inputs.message.value.replace(/[<>]/g, '');
+        });
+
+        checkbox.addEventListener('change', () => {
+            submitBtn.disabled = !checkbox.checked;
+            submitBtn.innerHTML = checkbox.checked ? 'Enviar Mensagem! 🚀' : 'Enviar Mensagem! 🎉';
+        });
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            let hasError = false;
+
+            if (!inputs.name.value || !/^[A-Za-zÀ-ÿ\s-]{1,50}$/.test(inputs.name.value)) {
+                errors.name.style.display = 'block';
+                hasError = true;
+            } else {
+                errors.name.style.display = 'none';
+            }
+
+            if (!inputs.email.value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inputs.email.value)) {
+                errors.email.style.display = 'block';
+                hasError = true;
+            } else {
+                errors.email.style.display = 'none';
+            }
+
+            if (!inputs.subject.value) {
+                errors.subject.style.display = 'block';
+                hasError = true;
+            } else {
+                errors.subject.style.display = 'none';
+            }
+
+            if (!inputs.message.value || inputs.message.value.length > 500) {
+                errors.message.style.display = 'block';
+                hasError = true;
+            } else {
+                errors.message.style.display = 'none';
+            }
+
+            if (hasError) return;
+
+            thanks.style.display = 'block';
+            triggerConfetti();
+            setTimeout(() => {
+                thanks.style.display = 'none';
+            }, 3000);
+            form.reset();
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Enviar Mensagem! 🎉';
+        });
+
+        Object.values(inputs).forEach(input => {
+            input.addEventListener('focus', () => {
+                input.style.background = '#f0f9ff';
+                const label = input.previousElementSibling;
+                if (label) {
+                    const emoji = label.querySelector('.emoji');
+                    if (emoji) emoji.style.animation = 'wiggle 0.4s ease-in-out infinite';
+                }
+            });
+            input.addEventListener('blur', () => {
+                input.style.background = 'white';
+                const label = input.previousElementSibling;
+                if (label) {
+                    const emoji = label.querySelector('.emoji');
+                    if (emoji) emoji.style.animation = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
